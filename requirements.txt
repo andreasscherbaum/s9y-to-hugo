@@ -1,0 +1,9 @@
+requests
+datetime
+markdownify
+psycopg2
+python-dateutil
+tzdata
+python-frontmatter
+toml
+beautifulsoup4
