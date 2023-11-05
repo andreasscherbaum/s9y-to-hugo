@@ -147,6 +147,7 @@ class Config:
 
         if (args.dbtype == "mysql"):
             print("MySQL/MariaDB support is currently not implemented")
+            sys.exit(1)
 
         if (args.targetdir == ""):
             self.print_help()
