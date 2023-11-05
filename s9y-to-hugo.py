@@ -270,16 +270,16 @@ class DatabasePG:
                 connect_data.append("host='{host}'".format(host = self.config.arguments.dbhost))
 
             if (len(self.config.arguments.dbname) > 0):
-                connect_data.append("dbname='{host}'".format(host = self.config.arguments.dbname))
+                connect_data.append("dbname='{dbname}'".format(dbname = self.config.arguments.dbname))
 
             if (len(self.config.arguments.dbuser) > 0):
-                connect_data.append("user='{host}'".format(host = self.config.arguments.dbuser))
+                connect_data.append("user='{username}'".format(username = self.config.arguments.dbuser))
 
             if (len(self.config.arguments.dbport) > 0):
-                connect_data.append("port='{host}'".format(host = self.config.arguments.dbport))
+                connect_data.append("port='{port}'".format(port = self.config.arguments.dbport))
 
             if (len(self.config.arguments.dbpass) > 0):
-                connect_data.append("password='{host}'".format(host = self.config.arguments.dbpass))
+                connect_data.append("password='{password}'".format(password = self.config.arguments.dbpass))
 
             connect_string = " ".join(connect_data)
 
