@@ -435,6 +435,12 @@ class Database:
         if (self.dbtype == "pg"):
             logging.debug("Selecting PostgreSQL driver")
             self.connection = DatabasePG(config)
+        elif (self.dbtype == "mysql"):
+            logging.debug("Selecting MySQL driver")
+            self.connection = DatabaseMySQL(config)
+        else:
+            logging.error("Unknown database")
+            sys.exit(1)
 
 
     def test(self):
