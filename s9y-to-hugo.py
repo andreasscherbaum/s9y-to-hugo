@@ -98,7 +98,7 @@ class Config:
         parser.add_argument('--dbuser', default = '', dest = 'dbuser', help = 'database user')
         parser.add_argument('--dbpass', default = '', dest = 'dbpass', help = 'database pass')
         parser.add_argument('--dbname', default = '', dest = 'dbname', help = 'database name')
-        parser.add_argument('--dbport', default = '5432', dest = 'dbport', help = 'database port')
+        parser.add_argument('--dbport', default = '', dest = 'dbport', help = 'database port')
         parser.add_argument('--dbprefix', default = '', dest = 'dbprefix', help = 'S9Y database prefix', required = True)
         # run Hugo from subdirectory: https://discourse.gohugo.io/t/make-home-to-be-subdirectory/4345/6
         parser.add_argument('--webprefix', default = '/', dest = 'webprefix', help = 'Hugo web prefix')
@@ -145,9 +145,11 @@ class Config:
         if (args.quiet is True):
             logging.getLogger().setLevel(logging.ERROR)
 
-        if (args.dbtype == "mysql"):
-            print("MySQL/MariaDB support is currently not implemented")
-            sys.exit(1)
+        if (args.dbport == ""):
+            if (args.dbtype == "pg"):
+                args.dbport = "5432"
+            if (args.dbtype == "mysql"):
+                args.dbport = "3306"
 
         if (args.targetdir == ""):
             self.print_help()
@@ -419,6 +421,169 @@ class DatabasePG:
 
 
 # end DatabasePG class
+#######################################################################
+
+
+
+#######################################################################
+# DatabaseMySQL class
+
+class DatabaseMySQL:
+    # avoid importing the module in the global class space
+    # this way, it's only loaded if someone selects the MySQL driver
+    # otherwise it must be installed all the time, even if someone doesn't need it
+    import mysql.connector
+    from psycopg2.extras import RealDictCursor
+
+
+    def __init__(self, config):
+        self.config = config
+        self.dbprefix = self.config.arguments.dbprefix
+
+        try:
+            # the self.connector.connect is required, because the module lives only in this class
+            conn = self.mysql.connector.connect(host = self.config.arguments.dbhost,
+                                                user = self.config.arguments.dbuser,
+                                                password = self.config.arguments.dbpass,
+                                                database = self.config.arguments.dbname,
+                                                port = self.config.arguments.dbport)
+        except self.mysql.connector.Error as e:
+            print('Error %s' % e)
+            sys.exit(1)
+
+        self.connection = conn
+
+
+    # run_query()
+    #
+    # execute a database query without parameters
+    #
+    # parameter:
+    #  - self
+    #  - query
+    # return:
+    #  none
+    def run_query(self, query):
+        self.connection.start_transaction()
+        with self.connection.cursor(buffered = True) as cursor:
+            cursor.execute(query)
+        self.connection.commit()
+
+
+    # execute_one()
+    #
+    # execute a database query with parameters, return single result
+    #
+    # parameter:
+    #  - self
+    #  - query
+    #  - list with parameters
+    # return:
+    #  - result
+    def execute_one(self, query, param):
+        self.connection.start_transaction()
+        with self.connection.cursor(buffered = True, dictionary = True) as cursor:
+            cursor.execute(query, param)
+            result = cursor.fetchall()
+        self.connection.commit()
+
+        return result[0]
+
+
+    # execute_query()
+    #
+    # execute a database query with parameters, return result set
+    #
+    # parameter:
+    #  - self
+    #  - query
+    #  - list with parameters
+    # return:
+    #  - result set
+    def execute_query(self, query, param):
+        self.connection.start_transaction()
+        with self.connection.cursor(buffered = True, dictionary = True) as cursor:
+            cursor.execute(query, param)
+            result = cursor.fetchall()
+        self.connection.commit()
+
+        return result
+
+
+    def fetch_table(self, table, order_by = None):
+        query = 'SELECT * FROM {p}_{t}'.format(p = self.dbprefix, t = table)
+        if (order_by is not None):
+            query += ' ORDER BY "{o}"'.format(o = order_by)
+        #print(query)
+
+        return self.execute_query(query, [])
+
+
+    def authors(self):
+        authors = self.fetch_table('authors', 'authorid')
+
+        return authors
+
+
+    def categories(self):
+        categories = self.fetch_table('category', 'categoryid')
+
+        return categories
+
+
+    def entry_categories(self):
+        entry_categories = self.fetch_table('entrycat', 'entryid')
+
+        return entry_categories
+
+
+    def tags(self):
+        tags = self.fetch_table('entrytags', 'entryid')
+
+        return tags
+
+
+    def permalinks(self):
+        permalinks = self.fetch_table('permalinks', 'entry_id')
+
+        return permalinks
+
+
+    def entries(self):
+        entries = self.fetch_table('entries', 'id')
+
+        return entries
+
+
+    def number_entries_by_author(self, authorid):
+        query = 'SELECT COUNT(*) AS count FROM {p}_entries WHERE authorid = %s'.format(p = self.dbprefix)
+        result = self.execute_one(query, [str(authorid)])
+
+        return result['count']
+
+
+    def number_entries_by_category(self, categoryid):
+        query = 'SELECT COUNT(*) AS count FROM {p}_entrycat WHERE categoryid = %s'.format(p = self.dbprefix)
+        result = self.execute_one(query, [str(categoryid)])
+
+        return result['count']
+
+
+    def number_entries_by_tag(self, tag):
+        query = 'SELECT COUNT(*) AS count FROM {p}_entrytags WHERE tag = %s'.format(p = self.dbprefix)
+        result = self.execute_one(query, [str(tag)])
+
+        return result['count']
+
+
+    def s9y_config_entry(self, entry):
+        query = "SELECT value FROM {p}_config where authorid = 0 and name = %s".format(p = self.dbprefix)
+        result = self.execute_one(query, [entry])
+
+        return result['value']
+
+
+# end DatabaseMySQL class
 #######################################################################
 
 
@@ -1270,7 +1435,7 @@ class Migration:
         logging.debug("Have {c} blog entries".format(c = len(entries)))
         for e in entries:
             #print(e)
-            link = self.permalinks_by_id[e['id']][0]
+            link = self.permalinks_by_id[e['id']]['permalink']
             if (type(self.config.arguments.ignore_post) is list and link in self.config.arguments.ignore_post):
                 logging.info("Ignoring post: {link}".format(link = link))
                 number_ignored += 1
