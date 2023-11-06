@@ -705,7 +705,7 @@ class Migration:
 
         # $serendipity[‘useServerOffset’]: Boolean whether the timezone of the server and the authors differs
         # $serendipity[‘serverOffsetHours’]: How many hours timezone difference are between server and authors
-        q1 = "SELECT value FROM {p}_config where authorid = 0 and name = 'useServerOffset'".format(p = self.dbprefix)
+        q1 = "SELECT value FROM {p}_config where authorid = 0 and name = 'useServerOffset'".format(p = self.db.connection.dbprefix)
         r1 = self.db.execute_query(q1, [])
         if (r1[0]['value'] == 'true'):
             self.useServerOffset = True
@@ -714,7 +714,7 @@ class Migration:
         else:
             self.useServerOffset = False
 
-        q2 = "SELECT value FROM {p}_config where authorid = 0 and name = 'serverOffsetHours'".format(p = self.dbprefix)
+        q2 = "SELECT value FROM {p}_config where authorid = 0 and name = 'serverOffsetHours'".format(p = self.db.connection.dbprefix)
         r2 = self.db.execute_query(q2, [])
         self.useServerOffset = r2[0]['value']
 
