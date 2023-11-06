@@ -1327,9 +1327,10 @@ class Migration:
                 c_name = self._sanitize_url_string(self.categories_by_id[e]['category_name'])
                 if (c_name.lower() not in fm['categories']):
                     fm['categories'].append(c_name.lower())
-        if (len(fm['categories']) == 0):
-            # otherwise this will show up as [] in the Frontmatter output
-            del(fm['categories'])
+        # leave this in there, we want to see categories in the Frontmatter
+        #if (len(fm['categories']) == 0):
+        #    # otherwise this will show up as [] in the Frontmatter output
+        #    del(fm['categories'])
 
         # handle tags
         if (fm.get('tags') == None):
@@ -1341,9 +1342,10 @@ class Migration:
                 t_name = self._sanitize_url_string(t)
                 if (t_name.lower() not in fm['tags']):
                     fm['tags'].append(t_name.lower())
-        if (len(fm['tags']) == 0):
-            # otherwise this will show up as [] in the Frontmatter output
-            del(fm['tags'])
+        # leave this in there, we want to see tags in the Frontmatter
+        #if (len(fm['tags']) == 0):
+        #    # otherwise this will show up as [] in the Frontmatter output
+        #    del(fm['tags'])
 
         fm.content = body
 
