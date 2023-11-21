@@ -52,7 +52,7 @@ Or:
 * `--dbuser`: Database connection user
 * `--dbpass`: Database connection password
 * `--dbname`: Database name
-* `--dbport`: Database port (defaults to PostgreSQL 5432)
+* `--dbport`: Database port (defaults to 5432 for PostgreSQL, 3306 for MySQL)
 * `--dbprefix`: Database table prefix (S9y allows hosting multiple blogs in the same database, [see documentation](https://docs.s9y.org/docs/users/using/configuration.html))
 * `--webprefix`: The URL path prefix for the new blog, default to `/` (make sure your template supports subdirectories)
 * `--oldwebprefix`: The URL path prefix of the old blog, default to `/` (migration to a new path is possible)
