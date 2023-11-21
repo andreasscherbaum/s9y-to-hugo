@@ -1135,8 +1135,8 @@ class Migration:
             with open(self.config.arguments.rewritefile, 'a') as f:
                 # all URLs are absolute, this allows placing the redirect
                 # file anywhere
-                f.write("RedirectMatch 301 {old} {new}\n".format(old = old_entry,
-                                                                 new = new_entry))
+                f.write("Redirect 301 {old} {new}\n".format(old = old_entry,
+                                                            new = new_entry))
             logging.debug("Writing redirect: {old} -> {new}".format(old = old_entry,
                                                                     new = new_entry))
 
