@@ -109,6 +109,7 @@ class Config:
         # https://gohugo.io/content-management/urls/#aliases
         parser.add_argument('--rewritefile', default = '', dest = 'rewritefile', help = 'file for adding URL rewrites from old to new postings')
         parser.add_argument('--rewritetype', default = '', choices=['apache2'], dest = 'rewritetype', help = 'type of rewrite file (currently only Apache2 is supported)')
+        parser.add_argument('--rewritejson', default = '', dest = 'rewritejson', help = 'JSON file for adding a list of old and new URLs (mainly for use in scripts)')
         # https://gohugo.io/content-management/organization/
         parser.add_argument('--use-bundles', default = False, dest = 'use_bundles', action = 'store_true', help = 'use Hugo bundles instead of single Markdown files')
         parser.add_argument('--remove-s9y-id', default = False, dest = 'remove_s9y_id', action = 'store_true', help = 'remove the S9Y id from URL')
@@ -187,6 +188,13 @@ class Config:
                 self.print_help()
                 print("")
                 print("Error: rewritetype must be specified when rewritefile is selected")
+                sys.exit(1)
+
+        if (args.rewritejson != ""):
+            if (os.path.exists(args.rewritejson)):
+                self.print_help()
+                print("")
+                print("Error: rewritejson must not exist")
                 sys.exit(1)
 
         if (args.imagedir != ""):
@@ -1131,6 +1139,11 @@ class Migration:
                                                                  new = new_entry))
             logging.debug("Writing redirect: {old} -> {new}".format(old = old_entry,
                                                                     new = new_entry))
+
+        if (self.config.arguments.rewritejson != ""):
+            with open(self.config.arguments.rewritejson, 'a') as f:
+                f.write("{{'orig': '{old}',\n 'replace': '{new}'}},\n".format(old = old_entry,
+                                                                               new = new_entry))
 
         # store entry to avoid writing it again next time
         self.redirect_links_seen[old_url] = new_url
