@@ -1137,6 +1137,11 @@ class Migration:
                 # file anywhere
                 f.write("Redirect 301 {old} {new}\n".format(old = old_entry,
                                                             new = new_entry))
+                # some search engines might come around with '+' when there was a space
+                old_entry_plus = old_entry.replace('-', '+')
+                if (old_entry_plus != old_entry):
+                    f.write("Redirect 301 {old} {new}\n".format(old = old_entry_plus,
+                                                                new = new_entry))
             logging.debug("Writing redirect: {old} -> {new}".format(old = old_entry,
                                                                     new = new_entry))
 
