@@ -110,6 +110,7 @@ class Config:
         parser.add_argument('--rewritefile', default = '', dest = 'rewritefile', help = 'file for adding URL rewrites from old to new postings')
         parser.add_argument('--rewritetype', default = '', choices=['apache2'], dest = 'rewritetype', help = 'type of rewrite file (currently only Apache2 is supported)')
         parser.add_argument('--rewritejson', default = '', dest = 'rewritejson', help = 'JSON file for adding a list of old and new URLs (mainly for use in scripts)')
+        parser.add_argument('--httpsexitlist', default = '', dest = 'httpsexitlist', help = 'list with domain names for exit.php transformation which will made https')
         # https://gohugo.io/content-management/organization/
         parser.add_argument('--use-bundles', default = False, dest = 'use_bundles', action = 'store_true', help = 'use Hugo bundles instead of single Markdown files')
         parser.add_argument('--remove-s9y-id', default = False, dest = 'remove_s9y_id', action = 'store_true', help = 'remove the S9Y id from URL')
@@ -195,6 +196,13 @@ class Config:
                 self.print_help()
                 print("")
                 print("Error: rewritejson must not exist")
+                sys.exit(1)
+
+        if (args.httpsexitlist != ""):
+            if (not os.path.exists(args.httpsexitlist)):
+                self.print_help()
+                print("")
+                print("Error: httpsexitlist must exist")
                 sys.exit(1)
 
         if (args.imagedir != ""):
@@ -388,6 +396,12 @@ class DatabasePG:
         return tags
 
 
+    def exits(self):
+        exits = self.fetch_table('references', 'id')
+
+        return exits
+
+
     def permalinks(self):
         permalinks = self.fetch_table('permalinks', 'entry_id')
 
@@ -551,6 +565,12 @@ class DatabaseMySQL:
         return tags
 
 
+    def exits(self):
+        exits = self.fetch_table('references', 'id')
+
+        return exits
+
+
     def permalinks(self):
         permalinks = self.fetch_table('permalinks', 'entry_id')
 
@@ -641,6 +661,10 @@ class Database:
         return self.connection.tags()
 
 
+    def exits(self):
+        return self.connection.exits()
+
+
     def permalinks(self):
         return self.connection.permalinks()
 
@@ -700,6 +724,14 @@ class Migration:
 
         self.calculate_tz_offset()
         self._get_hugo_config()
+
+        if (self.config.arguments.httpsexitlist != ""):
+            with open(self.config.arguments.httpsexitlist, 'r') as file:
+                self.httpsexitreplace = file.readlines()
+                self.httpsexitreplace = [i.strip() for i in self.httpsexitreplace]
+        else:
+            self.httpsexitreplace = []
+
 
 
     def calculate_tz_offset(self):
@@ -1063,6 +1095,50 @@ class Migration:
                 self.permalinks_by_id[p['entry_id']] = p
 
 
+
+    def make_links_https(self, url):
+
+        for h in self.httpsexitreplace:
+            # replace the domain in the url
+            url_source = 'http://{h}/'.format(h = h)
+            url_dest = 'https://{h}/'.format(h = h)
+            url = url.replace(url_source, url_dest)
+
+            # replace the domain if it's just the domain name
+            # and nothing after the hostname
+            url_source = 'http://{h}'.format(h = h)
+            url_dest = 'https://{h}/'.format(h = h)
+            if (url == url_source):
+                url = url_dest
+
+        if ('http://' in url and 'wikipedia.org' in url):
+            url = url.replace('http://', 'https://')
+
+        return url
+
+
+
+    def exits(self):
+        logging.debug("Reading exits")
+        exits = self.db.exits()
+        #print(exits)
+
+        for e in exits:
+            url = self.make_links_https(e['link'].replace('&amp;', '&'))
+            if (url[0:7] != 'http://' and url[0:8] != 'https://'):
+                # do not deal with anything which is not a web link
+                continue
+            url_id = e['id']
+            entry_id = e['entry_id']
+
+            url_old = "{owp}exit.php?url_id={url_id}&entry_id={entry_id}".format(owp = self.config.arguments.oldwebprefix,
+                                                                                 url_id = url_id,
+                                                                                 entry_id = entry_id);
+
+            self._write_rewrite_file(url_old, url, '', quote_urls = False, extern_url_allowed = True, place_in_quotes = True)
+
+
+
     def _rewrite_url(self, url, entry):
         new_url = url
 
@@ -1112,36 +1188,49 @@ class Migration:
         return new_url, new_file
 
 
-    def _write_rewrite_file(self, old_url, new_url, entry, keep_hashtag_in_new = False):
+    def _write_rewrite_file(self, old_url, new_url, entry, keep_hashtag_in_new = False, quote_urls = True, extern_url_allowed = False, place_in_quotes = False):
         if (old_url[0:1] != '/'):
             logging.error("Old URL for redirect must be absolute!")
             logging.error("URL: {u}".format(u = old_url))
             sys.exit(1)
-        if (new_url[0:1] != '/'):
-            logging.error("New URL for redirect must be absolute!")
-            logging.error("URL: {u}".format(u = new_url))
-            sys.exit(1)
+        if (not extern_url_allowed):
+            if (new_url[0:1] != '/'):
+                logging.error("New URL for redirect must be absolute!")
+                logging.error("URL: {u}".format(u = new_url))
+                sys.exit(1)
 
         if (old_url in self.redirect_links_seen):
             # seen this URL before, don't write another entry'
             return
 
+        if (place_in_quotes):
+            quotes = '"'
+        else:
+            quotes = ''
+
         if (self.config.arguments.rewritetype == "apache2"):
-            old_entry = urllib.parse.quote(old_url)
-            new_entry = urllib.parse.quote(new_url)
+            if (quote_urls):
+                # this is the default
+                old_entry = urllib.parse.quote(old_url)
+                new_entry = urllib.parse.quote(new_url)
+            else:
+                old_entry = old_url
+                new_entry = new_url
             if (keep_hashtag_in_new):
                 # mainly used for archive links redirecting to the correct year
                 new_entry = new_entry.replace('%23', '#', 1)
             with open(self.config.arguments.rewritefile, 'a') as f:
                 # all URLs are absolute, this allows placing the redirect
                 # file anywhere
-                f.write("Redirect 301 {old} {new}\n".format(old = old_entry,
-                                                            new = new_entry))
+                f.write("Redirect 301 {q}{old}{q} {q}{new}{q}\n".format(old = old_entry,
+                                                                        new = new_entry,
+                                                                        q = quotes))
                 # some search engines might come around with '+' when there was a space
                 old_entry_plus = old_entry.replace('-', '+')
                 if (old_entry_plus != old_entry):
-                    f.write("Redirect 301 {old} {new}\n".format(old = old_entry_plus,
-                                                                new = new_entry))
+                    f.write("Redirect 301 {q}{old}{q} {q}{new}{q}\n".format(old = old_entry_plus,
+                                                                            new = new_entry,
+                                                                            q = quotes))
             logging.debug("Writing redirect: {old} -> {new}".format(old = old_entry,
                                                                     new = new_entry))
 
@@ -1199,6 +1288,7 @@ class Migration:
                         original_text = '![{comment}]({path})'.format(comment = img_comment, path = img_path)
                         replace_text = '![{comment}]({path})'.format(comment = img_comment, path = os.path.basename(img_realpath))
                         body = body.replace(original_text, replace_text)
+                        self._write_rewrite_file(img_path, new_link + os.path.basename(img_realpath), '')
                     else:
                         # the image path has the $webprefix already included
                         # needs to be rewritten for old and new webroot
@@ -1607,6 +1697,7 @@ def main():
     migration.entry_categories()
     migration.tags()
     migration.permalinks()
+    migration.exits()
     migration.entries()
 
 
