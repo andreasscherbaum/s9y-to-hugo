@@ -60,6 +60,8 @@ Or:
 * `--imagedir`: The directory where images from the old blog are available for migration (must match path in blog postings)
 * `--rewritefile`: The rewrite file which will have redirects from old to new URLs
 * `--rewritetype`: Rewrite file type (webserver type), currently only `apache2` is supported
+* `--rewritejson`: A file which is populated with the redirect information (useful for updating the migrated posts)
+* `--httpsexitlist`: A file which contains hostnames which will be upgraded to https when writing exit link redirects
 * `--use-bundles`: Use [Hugp Page Bundles](https://gohugo.io/content-management/page-bundles/) instead of a flat file structure
 * `--remove-s9y-id`: Remove the S9y ID from the URL
 * `--add-date-to-url`: Prefix the URL and the local file/directory with the ISO date of the posting
