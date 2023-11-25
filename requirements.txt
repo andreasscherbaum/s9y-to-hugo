@@ -7,3 +7,4 @@ tzdata
 python-frontmatter
 toml
 beautifulsoup4
+mysql-connector-python
